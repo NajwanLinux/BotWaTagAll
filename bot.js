@@ -1,20 +1,22 @@
 const { useMultiFileAuthState, makeWASocket } = require('@whiskeysockets/baileys');
 
+// Fungsi untuk mendeteksi link
+function containsLink(text) {
+    const urlRegex = /(https?:\/\/[^\s]+)/g; // Regex untuk mendeteksi URL
+    return urlRegex.test(text);
+}
+
 async function startBot() {
-    // Gunakan multi-file auth state untuk menyimpan session
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
 
-    // Buat socket WhatsApp
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: true, // Tampilkan QR code di terminal
+        printQRInTerminal: true,
     });
 
-    // Event ketika terhubung
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
         if (connection === 'close') {
-            // Jika terputus, coba sambungkan kembali
             if (lastDisconnect?.error?.output?.statusCode !== 401) {
                 startBot();
             }
@@ -23,37 +25,42 @@ async function startBot() {
         }
     });
 
-    // Event ketika menerima pesan
     sock.ev.on('messages.upsert', async (m) => {
         const message = m.messages[0];
         if (!message.key.fromMe && m.type === 'notify') {
-            const sender = message.key.remoteJid; // ID pengirim
-            const text = message.message.conversation || ''; // Isi pesan
+            const sender = message.key.remoteJid;
+            const text = message.message.conversation || '';
 
             console.log(`Menerima pesan dari ${sender}: ${text}`);
 
+            // Cek apakah pesan mengandung link
+            if (containsLink(text)) {
+                // Hapus pesan yang mengandung link
+                await sock.sendMessage(sender, {
+                    text: 'Pesan ini mengandung link yang tidak diperbolehkan!',
+                });
+                await sock.sendMessage(sender, {
+                    delete: message.key,
+                });
+                console.log(`Pesan dari ${sender} mengandung link dan telah dihapus.`);
+            }
+
             // Cek apakah pesan dimulai dengan ".h"
             if (text.startsWith('.h')) {
-                if (message.key.remoteJid.endsWith('@g.us')) { // Cek apakah pesan berasal dari grup
+                if (message.key.remoteJid.endsWith('@g.us')) {
                     const groupMetadata = await sock.groupMetadata(sender);
                     const participants = groupMetadata.participants.map(p => p.id);
+                    const customMessage = text.slice(3).trim();
 
-                    // Ambil teks setelah ".h"
-                    const customMessage = text.slice(3).trim(); // Hapus ".h " dari awal pesan
-
-                    // Jika ada teks setelah ".h", gabungkan dengan mention
                     if (customMessage) {
-                        const mentionText = participants.map(id => `@${id.split('@')[0]}`).join(' ');
-                        await sock.sendMessage(sender, { 
-                            text: `${customMessage} ${mentionText}`, 
-                            mentions: participants 
+                        await sock.sendMessage(sender, {
+                            text: `${customMessage}`,
+                            mentions: participants,
                         });
                     } else {
-                        // Jika tidak ada teks setelah ".h", kirim pesan default
-                        const mentionText = participants.map(id => `@${id.split('@')[0]}`).join(' ');
-                        await sock.sendMessage(sender, { 
-                            text: `Hai semua! ${mentionText}`, 
-                            mentions: participants 
+                        await sock.sendMessage(sender, {
+                            text: `Hai semua!`,
+                            mentions: participants,
                         });
                     }
                 }
@@ -61,7 +68,6 @@ async function startBot() {
         }
     });
 
-    // Simpan credentials ketika ada perubahan
     sock.ev.on('creds.update', saveCreds);
 }
 
