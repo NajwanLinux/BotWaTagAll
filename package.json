@@ -1,7 +1,6 @@
 {
   "name": "testbot",
   "version": "1.0.0",
-  "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -11,5 +10,15 @@
   "license": "ISC",
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.12"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NajwanLinux/BotWaTagAll.git"
+  },
+  "bugs": {
+    "url": "https://github.com/NajwanLinux/BotWaTagAll/issues"
+  },
+  "homepage": "https://github.com/NajwanLinux/BotWaTagAll#readme",
+  "description": ""
 }
